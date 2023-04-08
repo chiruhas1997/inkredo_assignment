@@ -4,12 +4,13 @@ from django.contrib.auth.models import User
 
 
 class HolidayHomes(models.Model):
-    user_name = models.OneToOneField(User, on_delete=models.CASCADE)
+    user_name = models.ForeignKey(User, on_delete=models.CASCADE)
     home_name = models.CharField(max_length=150, unique=True)
     city = models.CharField(max_length=100)
     no_rooms = models.IntegerField()
 
 class HomeImages(models.Model):
+    holiday_homes = models.ForeignKey(HolidayHomes, default = None, on_delete=models.CASCADE)
     image = models.FileField(upload_to ='uploads/')
 
 class Rooms(models.Model):

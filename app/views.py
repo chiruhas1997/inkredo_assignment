@@ -9,8 +9,9 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authtoken.models import Token
 
-from . models import HolidayHomes, Rooms
-from . serializers import UserSerializer, RegisterSerializer, SerialLogin, CreateHomeSerializer, RoomSerializer, EditRoomSerializer
+from . models import HolidayHomes, Rooms, HomeImages
+from . serializers import (UserSerializer, RegisterSerializer, SerialLogin, CreateHomeSerializer, RoomSerializer, EditRoomSerializer,
+                          ViewOwnersSerializer, ViewHomesSerializers, ViewRoomsSerializers, ImageListSerializers)
 
 @api_view(['GET'])
 def index(request):
@@ -19,22 +20,62 @@ def index(request):
     """
     if request.method == 'GET':
         return Response({
-            "base" : "http://127.0.0.1:8000/api"
-                          })
+            "base" : "http://127.0.0.1:8000/api",
+            "register": "http://127.0.0.1:8000/register",
+            "testing": "http://127.0.0.1:8000/testing",
+            "login": "http://127.0.0.1:8000/login",
+            "create_home": "http://127.0.0.1:8000/create_home",
+            "home/<home_name>": "http://127.0.0.1:8000/home/<home_name>",
+            'add_room/<home_name>': "http://127.0.0.1:8000/add_room/<home_name>",
+            'room/<home_name>/<room_id>': "http://127.0.0.1:8000/room/<home_name>/<room_id>",
+            'list_owners/': "http://127.0.0.1:8000/list_owners",
+            'list_homes/<owner>': "http://127.0.0.1:8000/list_homes/<owner>",
+            'list_rooms/<owner>/<homes>': "http://127.0.0.1:8000/list_rooms/<owner>/<homes>",
+            'add_images/<home_name>': "http://127.0.0.1:8000/add_images/<home_name>",
+            'list_images/<owner>/<home>': "http://127.0.0.1:8000/list_images/<owner>/<home>"})
 @api_view(['GET'])
 def list_owners(request):
-    receivers = User.objects.all().values_list('username')
-    txt=''
-    print(list(receivers))
-    i=1
-    for user in list(receivers):
-        print(i,user)
-        print(user[0])
-        txt+=str(i)+' '+user[0]+'   '
-        i+=1
-    return Response({"Owners list":txt}) 
+    receivers = User.objects.all()
+    serializer = ViewOwnersSerializer(receivers, many = True)
 
+    return Response({"status":200, "payload": serializer.data})
 
+@api_view(['GET','POST'])
+def list_rooms(request, owner, homes):
+
+    try:
+        user_obj = User.objects.get(username=owner)
+        homes_objs = HolidayHomes.objects.get(user_name = user_obj, home_name = homes)
+
+        rooms_obj = Rooms.objects.filter(holiday_homes = homes_objs)
+        serializer = ViewRoomsSerializers(rooms_obj, many = True)
+        return Response({"status":200, "payload": serializer.data})
+    except:
+        return Response({"status":500, "payload": "no matching query "})
+
+@api_view(['GET','POST'])
+def list_images(request, owner, home):
+    try:
+        user_obj = User.objects.get(username=owner)
+        homes_objs = HolidayHomes.objects.get(user_name = user_obj, home_name = home)
+
+        img_obj = HomeImages.objects.filter(holiday_homes = homes_objs)
+        serializer = ImageListSerializers(img_obj, many = True)
+        return Response({"status":200, "payload": serializer.data})
+    except:
+        return Response({"status":500, "payload": "no matching query "})
+
+@api_view(['GET','POST'])
+def list_homes(request, owner):
+    print(owner)
+
+    try:
+        user_obj = User.objects.get(username=owner)
+        homes_objs = HolidayHomes.objects.filter(user_name = user_obj)
+        serializer = ViewHomesSerializers(homes_objs, many = True)
+        return Response({"status":200, "payload": serializer.data})
+    except:
+        return Response({"status":500, "payload": "no matching query "})
 
 class Register(generics.GenericAPIView):
     serializer_class = RegisterSerializer
@@ -46,13 +87,14 @@ class Register(generics.GenericAPIView):
 
         Token.objects.get_or_create(user=user)
         return Response({
+            "status":200,
             "meaasge" : "user created"
         })
 
 @api_view(['GET','POST'])
 def login(request):
     if request.method == 'GET':
-        return Response({'message':"This api has only POST method"})
+        return Response({"status":500,'message':"This api has only POST method"})
 
     elif request.method == 'POST':
         serializer = SerialLogin(data=request.data)
@@ -64,11 +106,10 @@ def login(request):
                 print('user valid')
                 token= Token.objects.get(user=user)
                 print(token)
-                return Response({'token':str(token),'status':'success'}, status=status.HTTP_201_CREATED)
-            return Response({'status':'wrong cradentials'}, status=status.HTTP_201_CREATED)
+                return Response({"status":200,'token':str(token),'status':'success'}, status=status.HTTP_201_CREATED)
+            return Response({"status":500,'message':'wrong cradentials'}, status=status.HTTP_201_CREATED)
             print(request.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 @api_view(['GET'])
@@ -90,9 +131,9 @@ def register_home(request):
 
             try :
                 HolidayHomes.objects.create(user_name = request.user, home_name = serializer.data['home_name'], city = serializer.data['city'], no_rooms=serializer.data['noumber_of_rooms'])
-                return Response({'message': "holiday home " +serializer.data['home_name']+' created'})
+                return Response({"status":200,'message': "holiday home " +serializer.data['home_name']+' created'})
             except:
-                return Response({"error":"holiday home "+serializer.data['home_name']+' already exists'})
+                return Response({"status":200,"error":"holiday home "+serializer.data['home_name']+' already exists'})
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
@@ -105,16 +146,16 @@ def home(request,home_name):
         if HolidayHomes.objects.filter(user_name = request.user, home_name = home_name).exists():
             homeobj = HolidayHomes.objects.get(user_name = request.user, home_name = home_name)
 
-            return Response({'holiday home name': homeobj.home_name, 'city':homeobj.city, 'number of rooms':homeobj.no_rooms})
+            return Response({"status":200,'holiday home name': homeobj.home_name, 'city':homeobj.city, 'number of rooms':homeobj.no_rooms})
         else :
             return Response({'no holiday home with name '+home_name+' under '+str(request.user)})
     if request.method == 'DELETE':
         if HolidayHomes.objects.filter(user_name = request.user, home_name = home_name).exists():
             homeobj = HolidayHomes.objects.get(user_name = request.user, home_name = home_name)
             homeobj.delete()
-            return Response({'holiday home name': homeobj.home_name + ' city deleated'})
+            return Response({"status":200,'holiday home name': homeobj.home_name + ' city deleated'})
         else :
-            return Response({'no holiday home with name '+home_name+' under '+str(request.user)})
+            return Response({"status":500,"message":'no holiday home with name '+home_name+' under '+str(request.user)})
 
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
@@ -122,15 +163,15 @@ def home(request,home_name):
 def add_room(request,home_name):
     if len(HolidayHomes.objects.filter(user_name = request.user, home_name = home_name))<1:
         print("this should not happen")
-        return Response({'no holiday home with name '+home_name+' under '+str(request.user)})
+        return Response({"status":500,"message":'no holiday home with name '+home_name+' under '+str(request.user)})
 
     serializer = RoomSerializer(data=request.data)
     if serializer.is_valid():
         home_obj = HolidayHomes.objects.get(user_name = request.user, home_name = home_name)
         if len(Rooms.objects.filter(holiday_homes = home_obj)) == home_obj.no_rooms:
-            return Response({'Error': "All rooms have been created"})
+            return Response({"status":500,'Error': "All rooms have been created"})
         if Rooms.objects.filter(holiday_homes = home_obj, rooom_id = serializer.data['rooom_id']).exists():
-            return Response({'Error': "room already exists"})
+            return Response({"status":500,'Error': "room already exists"})
         else:
             Rooms.objects.create(holiday_homes = home_obj
                                 ,rents = serializer.data['rents']
@@ -149,14 +190,15 @@ def add_room(request,home_name):
 def room(request,home_name,room_id):
     if len(HolidayHomes.objects.filter(user_name = request.user, home_name = home_name))<1:
         print("this should not happen")
-        return Response({'error':'no holiday home with name '+home_name+' under '+str(request.user)})
+        return Response({"status":500,'error':'no holiday home with name '+home_name+' under '+str(request.user)})
     else:
         home_obj = HolidayHomes.objects.get(user_name = request.user, home_name = home_name)
         if not Rooms.objects.filter(holiday_homes = home_obj, rooom_id = room_id).exists():
-            return Response({'error':'no room with is '+room_id+' in '+home_name})
+            return Response({"status":500,'error':'no room with is '+room_id+' in '+home_name})
         if request.method == 'GET':
             room_obj = Rooms.objects.get(holiday_homes = home_obj, rooom_id = room_id)
             return Response({
+                "status":200,
                 'rooom_id':room_obj.rooom_id,
                 'rents':room_obj.rents,
                 'availibility':room_obj.availibility,
@@ -167,7 +209,7 @@ def room(request,home_name,room_id):
         if request.method == "DELETE":
             room_obj = Rooms.objects.get(holiday_homes = home_obj, rooom_id = room_id)
             room_obj.delete()
-            return Response({"message":"room deleated"})
+            return Response({"status":500,"message":"room deleated"})
         if request.method == "PUT":
             serializer = EditRoomSerializer(data = request.data)
             if serializer.is_valid():
@@ -178,11 +220,19 @@ def room(request,home_name,room_id):
                 room_obj.check_out = serializer.data['check_out']
                 room_obj.rules = serializer.data['rules']
                 room_obj.save()
-                return Response({"message":"Details updated"})
+                return Response({"status":200,"message":"Details updated"})
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def add_images(request,home_name):
 
-#receivers = User.objects.all().values_list('username')
-
-
+    try:
+        home_obj = HolidayHomes.objects.get(user_name = request.user, home_name = home_name)
+        file = request.data['image']
+        home_obj = HomeImages.objects.create(holiday_homes = home_obj, image = file)
+        return Response({"status":200, "message": "image uploaded"})
+    except:
+        return Response({"ststus":500, "message": "Bad request"})

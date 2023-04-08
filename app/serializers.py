@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import HolidayHomes
+from .models import HolidayHomes, Rooms, HomeImages
 
 # User Serializer
 class UserSerializer(serializers.ModelSerializer):
@@ -44,3 +44,24 @@ class EditRoomSerializer(serializers.Serializer):
     check_in = serializers.DateTimeField()
     check_out = serializers.DateTimeField()
     rules = serializers.CharField()
+
+class ViewOwnersSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('username', 'email')
+
+class ViewHomesSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = HolidayHomes
+        fields = ('home_name','city','no_rooms')
+
+class ViewRoomsSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = Rooms
+        #fields = '__all__'
+        exclude = ('holiday_homes','id')
+
+class ImageListSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = HomeImages
+        fields = ('image',)
